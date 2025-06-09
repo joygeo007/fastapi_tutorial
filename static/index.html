@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI News Summarizer</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        margin: 20px;
+        background-color: #f0f2f5;
+        color: #333;
+        line-height: 1.6;
+      }
+      .container {
+        max-width: 800px;
+        margin: auto;
+        background-color: #fff;
+        padding: 25px;
+        border-radius: 8px;
+        box-shadow: 0 2px_10px rgba(0, 0, 0, 0.1);
+      }
+      h1 {
+        color: #1a73e8;
+        text-align: center;
+        margin-bottom: 20px;
+      }
+      select,
+      button {
+        width: 100%;
+        padding: 12px;
+        margin-top: 5px;
+        border-radius: 5px;
+        border: 1px solid #ccc;
+        box-sizing: border-box;
+        font-size: 16px;
+      }
+      button {
+        background-color: #1a73e8;
+        color: white;
+        cursor: pointer;
+        font-weight: bold;
+        transition: background-color 0.3s;
+        border: none;
+      }
+      button:hover {
+        background-color: #1558b3;
+      }
+      .error-message {
+        color: red;
+        font-weight: bold;
+        margin-top: 10px;
+        text-align: center;
+      }
+
+      /* New styles for the article list */
+      #resultsArea {
+        margin-top: 25px;
+      }
+      .article-item {
+        border-bottom: 1px solid #e0e0e0;
+        padding: 15px 0;
+      }
+      .article-item:last-child {
+        border-bottom: none;
+      }
+      .article-item h3 {
+        margin: 0 0 5px 0;
+        font-size: 1.2em;
+      }
+      .article-item h3 a {
+        text-decoration: none;
+        color: #1a73e8;
+      }
+      .article-item h3 a:hover {
+        text-decoration: underline;
+      }
+      .one-liner {
+        margin: 0 0 10px 0;
+        color: #5f6368;
+      }
+
+      /* Style for the 'Read More' button */
+      .read-more-btn {
+        background: none;
+        border: none;
+        color: #80868b; /* Grayed out text */
+        cursor: pointer;
+        padding: 0;
+        font-family: inherit;
+        font-size: 0.9em;
+        font-weight: bold;
+      }
+      .read-more-btn:hover {
+        color: #1a73e8;
+        text-decoration: underline;
+      }
+
+      /* Style for the expanded summary content */
+      .summary-content {
+        margin-top: 10px;
+        padding: 10px;
+        background-color: #f8f9fa;
+        border-left: 3px solid #1a73e8;
+        border-radius: 4px;
+        white-space: pre-wrap; /* Preserves line breaks from the LLM */
+      }
+
+      /* General loader for the main fetch */
+      .loader {
+        border: 6px solid #e0e0e0;
+        border-top: 6px solid #1a73e8;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1.2s linear infinite;
+        margin: 25px auto;
+        display: none;
+      }
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>AI News Summarizer</h1>
+
+      <label for="categorySelect">Choose a news category:</label>
+      <select id="categorySelect">
+        <option value="technology">Technology</option>
+        <option value="business">Business</option>
+        <option value="science">Science</option>
+        <option value="health">Health</option>
+        <option value="sports">Sports</option>
+        <option value="entertainment">Entertainment</option>
+      </select>
+
+      <button onclick="fetchArticles()">Get Latest Headlines</button>
+
+      <div class="loader" id="loader"></div>
+      <div id="errorMessage" class="error-message"></div>
+
+      <div id="resultsArea"></div>
+    </div>
+
+    <script>
+      // Main function to fetch the list of articles
+      async function fetchArticles() {
+        const category = document.getElementById("categorySelect").value;
+        const resultsArea = document.getElementById("resultsArea");
+        const loader = document.getElementById("loader");
+        const errorMessageDiv = document.getElementById("errorMessage");
+
+        // Reset UI
+        resultsArea.innerHTML = "";
+        errorMessageDiv.textContent = "";
+        loader.style.display = "block";
+
+        try {
+          const response = await fetch(
+            `/fetch_news?category=${encodeURIComponent(category)}`
+          );
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(
+              errorData.detail || `HTTP error! Status: ${response.status}`
+            );
+          }
+          const articles = await response.json();
+
+          if (articles.length === 0) {
+            resultsArea.textContent = "No articles found for this category.";
+            return;
+          }
+
+          // Build the HTML for each article
+          articles.forEach((article, index) => {
+            const articleDiv = document.createElement("div");
+            articleDiv.className = "article-item";
+
+            // Truncate long descriptions for the one-liner
+            const oneLiner = article.description
+              ? article.description.length > 150
+                ? article.description.substring(0, 150) + "..."
+                : article.description
+              : "No description available.";
+
+            articleDiv.innerHTML = `
+                        <h3><a href="${article.url}" target="_blank" rel="noopener noreferrer">${article.title}</a></h3>
+                        <p class="one-liner">${oneLiner}</p>
+                        <div id="summary-placeholder-${index}">
+                            <button class="read-more-btn" onclick="expandSummary(${index}, this)">
+                                Read More &raquo;
+                            </button>
+                        </div>
+                    `;
+            // Store the full description content in a data attribute for later use
+            articleDiv.dataset.fullContent =
+              article.description || article.title;
+            resultsArea.appendChild(articleDiv);
+          });
+        } catch (error) {
+          console.error("Error fetching articles:", error);
+          errorMessageDiv.textContent = `An error occurred: ${error.message}`;
+        } finally {
+          loader.style.display = "none";
+        }
+      }
+
+      // Function to handle "Read More" click and fetch a single summary
+      async function expandSummary(index, buttonElement) {
+        const placeholder = document.getElementById(
+          `summary-placeholder-${index}`
+        );
+        const articleDiv = buttonElement.closest(".article-item");
+        const contentToSummarize = articleDiv.dataset.fullContent;
+
+        // Show a small loading text
+        placeholder.innerHTML = "<i>Summarizing...</i>";
+
+        try {
+          const response = await fetch("/summarize_article", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ content: contentToSummarize }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(
+              errorData.detail || `HTTP error! Status: ${response.status}`
+            );
+          }
+
+          const result = await response.json();
+
+          // Display the summary
+          placeholder.innerHTML = `<div class="summary-content">${result.summary}</div>`;
+        } catch (error) {
+          console.error("Error fetching summary:", error);
+          placeholder.innerHTML = `<p class="error-message" style="text-align:left; font-size: 0.9em;">Failed to load summary: ${error.message}</p>`;
+        }
+      }
+    </script>
+  </body>
+</html>
