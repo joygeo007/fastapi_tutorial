@@ -49,7 +49,7 @@ Follow these steps to get the application running on your local machine.
 First, clone this repository to your local machine:
 
 ```bash
-git clone <your-repository-url>
+git clone https://github.com/joygeo007/fastapi_tutorial.git
 cd news-summarizer
 ```
 
